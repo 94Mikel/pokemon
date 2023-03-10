@@ -5,7 +5,8 @@
             <img alt="Vue logo" src="@/assets/logo.svg" width="125" height="125" />
             <!--TODO realizar busqueda con autocompletado-->
 
-            <input type="text" placeholder="Escriba el nombre" v-model="search" list="searchs"/>
+            <!--
+                <input type="text" placeholder="Escriba el nombre" v-model="search" list="searchs"/>
             <table>
                 <tbody>
                     <tr v-for="item in searchHelp" v-bind:key="item.order">
@@ -13,6 +14,16 @@
                     </tr>
                 </tbody>
             </table>
+            -->
+
+            <autoComplete
+            :items="pokemons"
+            filterBy="name"
+            @Change="onChangeSearch"
+            title="Busca el pokemon"
+            @selected="pokemonSelected"
+            />
+            
         
         </div>
 
@@ -31,8 +42,11 @@
             <div v-for="a in typeFilter" v-bind:key="a.order">
                 <div class="card" :style="{backgroundColor: a.color.name }">
                     <h4>#{{ a.order }}</h4>
-                    <img :alt="a.name" :src="a.img">
+                    <img class="pokeImg" :alt="a.name" :src="a.img">
                     <p>{{ a.name }}</p>
+                    <span v-for="t in a.types" v-bind:key="t">
+                        <img v-bind:src='`../assets/${t}.svg`' width="125" height="125">
+                    </span>
                     
                     <!--
                         name: {{ a.name }}
@@ -42,10 +56,16 @@
                     -->
                 </div>
             </div>
+            
         </div>
 
         <div id="footer">
             <!--TODO Realizar paginador-->
+            <div class="pagination">
+                <a @click="getDataPage('sub')">&laquo;</a>
+                <a v-for="a in totalPages" v-bind:key="a" v-on:click="getDataPage(a)" :style="a === pageNumber ? {backgroundColor: '#4CAF50' } : {}">{{ a }} </a>
+                <a @click="getDataPage('add')">&raquo;</a>
+            </div>
         </div>
     </div>
     
@@ -58,6 +78,8 @@
 //importar servicio para realizar peticiones rest a pokeapi.co
 import pokemonService from '@/services/pokemonService'
 
+import autoComplete from '@/components/autoComplete.vue'
+
 export default {
     name: 'pokemonApp',
     data() {
@@ -67,7 +89,11 @@ export default {
             pokemons: [],
             types: [],
             search: '',
-            filter_type: ''
+            filter_type: '',
+            totalPages: 0,
+            dataPages: [],
+            pageNumber: 1,
+            pokemonsByPage: 10
         }
     },
     created(){
@@ -125,6 +151,8 @@ export default {
                 
             }
 
+            this.totalPages = Math.ceil(this.pokemons.length / 10)
+
             //console.log('pokemons: '+JSON.stringify(this.pokemons));
         },
         async getTypes() {
@@ -145,6 +173,7 @@ export default {
         },
         typeChange(type){
             //Si se ha seleccionado el boton 'all', se mostraran todos los poquemos
+            this.pageNumber = 1
             if(type === 'all'){
                 this.filter_type = ''
             }else{
@@ -153,13 +182,61 @@ export default {
         },
         seachSelected(name){
             this.search = name;
+        },
+        pokemonSelected(pokemon) {
+            this.search = pokemon.name
+            console.log(`Pokemon Selected:\nid: ${pokemon.id}\nname: ${pokemon.name}`)
+        },
+        onChangeSearch(pokemon) {
+            this.search = pokemon
+        },
+        getDataPage(page){
+            console.log('getDataPage')
+            switch (page) {
+                case 'sub':
+                    if(this.pageNumber > 1) {
+                        this.pageNumber -= 1
+                    }
+                    break;
+                case 'add':
+                    if(this.pageNumber < this.totalPages) {
+                        this.pageNumber += 1
+                    }
+                    break;
+                default:
+                    this.pageNumber = page;
+                    break;
+            }
+            
+        },
+        filterPagination: function(data){
+
+             this.totalPages = Math.ceil(data.length / this.pokemonsByPage) 
+
+            let result = [];
+
+            let start = (this.pageNumber * this.pokemonsByPage) - this.pokemonsByPage;
+            let end = (this.pageNumber * this.pokemonsByPage) 
+
+            for (let index = 0; index < data.length; index++) {
+                if(index >= start && index < end){
+                    result.push(data[index]);
+                }
+            }
+
+            return result
+
+        },
+        getImgTypeUrl(type) {
+            console.log('image type: '+type)
+            return '@/assets/ice.svg'
         }
     },
     computed: {
         //Cuendo se detecte un cambio, realiza el filtro
         searchHelp(){
             //Filtrado para el autocompletado
-            if(this.search){
+            if(this.search && typeof this.seach === 'string'){
                 return this.pokemons.filter((item)=>{
                     return this.search.toLowerCase().split(' ').every(v => item.name.toLowerCase().includes(v))
                 })
@@ -167,25 +244,88 @@ export default {
                 return this.pokemons
             }
         },
-        typeFilter(){
+        typeFilter: function(){
             //Filtrado por busqueda y typos
-            if(this.search){
+
+            
+
+            if(this.search && typeof this.search === 'string'){
                 //Si el buscador esta rellenado filtra por este
-                return this.pokemons.filter((item) => {
+                /*
+               return this.pokemons.filter((item,index) => {
                     //return this.filter_type.every(v => item.type.includes(v))
-                    return this.search.toLowerCase().split(' ').every(v => item.name.toLowerCase().includes(v))
+
+                    //this.totalPages = Math.floor(this.search.toLowerCase().split(' ').every(v => item.name.toLowerCase().includes(v)).length / 10)
+                    
+
+                    return this.search.toLowerCase().split(' ').every(v => item.name.toLowerCase().includes(v) && (index >= start) && (index < end))
                 })
-            }else if(this.filter_type){
+                */
+               let data = []
+
+               for (let index = 0; index < this.pokemons.length; index++) {
+                if(this.pokemons[index].name.includes(this.search)){
+                        data.push(this.pokemons[index]);
+                    }
+               }
+
+               
+
+               //this.totalPages = count;
+
+                return this.filterPagination(data);
+                
+            }else if(this.filter_type && typeof this.search == 'string'){
                 //Si el buscador esta vacio y se ha elegido un tipo, filtrar por este.
+                /*
                 return this.pokemons.filter((item) => {
-                    return this.filter_type.toLowerCase().split(' ').every(v => item.types.includes(v))
+                    //console.log('item: '+index);
+                    return this.filter_type.toLowerCase().split(' ').every((v,index) => item.types.includes(v) && (index >= start) && (index < end))
                 })
+                */
+                let data = [];
+                for (let index = 0; index < this.pokemons.length; index++) {
+                    if(this.pokemons[index].types.includes(this.filter_type)){
+                        data.push(this.pokemons[index]);
+                    }
+                }
+                return this.filterPagination(data);
+                
             }else{
                 //Si no se cumplen las dos condiciones, devolver todos los pokemons.
-                return this.pokemons
+                /*
+                let result = [];
+                for (let index = 0; index < this.pokemons.length; index++) {
+                    if(index >= start && index < end){
+                        result.push(this.pokemons[index]);
+                    }
+                }
+                return result
+                */
+                //console.log('POKEMONS: '+JSON.stringify(this.getDataPage(this.pokemons)))
+
+                return this.filterPagination(this.pokemons)
+                /*
+               return this.pokemons.filter((item, index) => {
+                    return (index >= start) && (index < end)
+                })
+                */
             }
         }
+    },
+    watch: {
+        typeFilter: function (){
+            //Pokemons filtrados / 10 pokemos por página
+            if(!this.seach && !this.filter_type){
+                this.totalPages = Math.ceil(this.pokemons.length / this.pokemonsByPage) 
+            }
+            
+        }
+    },
+    components: {
+        autoComplete
     }
+    
 }
 
 </script>
@@ -226,7 +366,7 @@ export default {
     }
 
     #types {
-        height: 14em;
+        height: 10em;
         background-color: white
         
     }
@@ -235,6 +375,7 @@ export default {
         height: 30em;
         background-color: white;
         padding: 3em;
+        z-index: 1;
     }
 
     .card {
@@ -254,13 +395,20 @@ export default {
         background-color: red;
     }
 
-    
-    .card img {
+    .pokeImg {
         position: absolute;
         left: 5em;
         top: 0em;
         width: 8em;
         height: 8em;
+    }
+
+    .pokeImg:hover{
+        position: absolute;
+        left: 3em;
+        top: -4em;
+        width: 12em;
+        height: 12em;
     }
 
     .card p {
@@ -270,16 +418,20 @@ export default {
         font-weight: bold;
     }
 
-    .card img:hover {
-        position: absolute;
-        left: 3em;
-        top: -4em;
-        width: 12em;
-        height: 12em;
-    }
-
     .card:hover {
         box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
+    }
+
+    .card span img {
+        margin-left: 2em;
+        width: 4em;
+        height: 4em;
+    }
+
+    .card span {
+        position: absolute;
+        top: 7em;
+        left: -2em;
     }
 
     #types button{
@@ -294,6 +446,32 @@ export default {
 
     #header table {
         background-color: red;
+    }
+
+    .pagination {
+        float: right;
+        margin-right: auto; 
+        margin-left: auto;
+    }
+
+    .pagination a {
+        color: black;
+        float: left;
+        padding: 8px 16px;
+        text-decoration: none;
+        transition: background-color .3s;
+        border: 1px solid #ddd;
+        border-radius: 40px;
+        margin: 0 4px;
+    }
+
+    .pagination a:hover {
+        background-color: #4CAF50;
+    }
+
+    #footer {
+        height: 5em;
+        background-color: white;
     }
 
 </style>

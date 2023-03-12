@@ -29,7 +29,7 @@
 <script>
     
     export default {
-        props: ["items", "filterBy"],
+        props: ["items", "filterBy", "search"],
         data() {
             return {
                 itemHeight: 39,
@@ -91,6 +91,14 @@
                 }
 
                 return this.items.filter(item => item[this.filterBy].toLowerCase().includes(this.query.toLowerCase()))
+            }
+        },
+        watch: {
+            search: function(search) {
+                if(!search){
+                    //Vaciar buscador cuando se hace click en cualquier boton tipos.
+                    this.query = ''
+                }
             }
         }
 

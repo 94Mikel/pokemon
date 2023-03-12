@@ -4,35 +4,23 @@
         <div id="header">
             <img alt="Vue logo" src="@/assets/logo.svg" width="125" height="125" />
             <!--TODO realizar busqueda con autocompletado-->
-
-            <!--
-                <input type="text" placeholder="Escriba el nombre" v-model="search" list="searchs"/>
-            <table>
-                <tbody>
-                    <tr v-for="item in searchHelp" v-bind:key="item.order">
-                        <td><a @click="seachSelected(item.name)" target="_blank">{{item.name}}</a></td>
-                    </tr>
-                </tbody>
-            </table>
-            -->
-
             <autoComplete
             :items="pokemons"
             filterBy="name"
             @Change="onChangeSearch"
             title="Busca el pokemon"
             @selected="pokemonSelected"
+            :search="search"
             />
             
-        
         </div>
 
         <div id="types">
             <!--Boton para seleccionar todos-->
-            <button :disabled="this.filter_type === '' ? true : false" :style="this.filter_type === '' ? { backgroundColor: 'rgba(100, 100, 230, 0.356)' } : {}" @click="$event => typeChange('all')">ALL</button>
+            <button :disabled="this.filter_type === '' ? true : false" :style="this.filter_type === '' ? { backgroundColor: 'rgba(100, 100, 230, 0.356)' } : {}" @click="$event => typeChange('all')"><div class="iconButton" style="padding: 0.9em 0em 0em 0em;">ALL</div></button>
             <!--Recorrer tipos de pokemon-->
             <div v-for="a in types" v-bind:key="a.id">
-                <button :disabled="this.filter_type === a.name ? true : false" :style="this.filter_type === a.name ? { backgroundColor: 'rgba(100, 100, 230, 0.356)' } : {}" @click="typeChange(a.name)">{{ a.name }}</button>
+                <button :disabled="this.filter_type === a.name ? true : false" :style="this.filter_type === a.name ? { backgroundColor: 'rgba(100, 100, 230, 0.356)' } : {}" @click="typeChange(a.name)"><div class="iconButton"><icon :name="a.name"/><span>{{ a.name }}</span></div></button>
             </div>
              
         </div>
@@ -44,16 +32,12 @@
                     <h4>#{{ a.order }}</h4>
                     <img class="pokeImg" :alt="a.name" :src="a.img">
                     <p>{{ a.name }}</p>
-                    <span v-for="t in a.types" v-bind:key="t">
-                        <img v-bind:src='`../assets/${t}.svg`' width="125" height="125">
-                    </span>
-                    
-                    <!--
-                        name: {{ a.name }}
-                    color: {{ a.color.name }}
-                    types: {{ a.types }}
-                    img: {{ a.img }}
-                    -->
+                    <div class="iconContainer" v-for="t in a.types" v-bind:key="t">
+                        <div>
+                            <icon class="icon" :name="t"/>
+                        </div>
+                    </div>
+                
                 </div>
             </div>
             
@@ -78,7 +62,11 @@
 //importar servicio para realizar peticiones rest a pokeapi.co
 import pokemonService from '@/services/pokemonService'
 
+//Importar componente para el autocompletado
 import autoComplete from '@/components/autoComplete.vue'
+
+//Importar componente para mostrar iconos svg dinamicamente
+import icon from '@/components/icon.vue'
 
 export default {
     name: 'pokemonApp',
@@ -109,8 +97,8 @@ export default {
                 pokemon_species: response.data.pokemon_species,
                 types: response.data.types
             }
-            console.log('get pokemon_species: '+JSON.stringify(this.pokemonsGeneration1.pokemon_species));
-            console.log('get types: '+JSON.stringify(this.pokemonsGeneration1.types));
+            //console.log('get pokemon_species: '+JSON.stringify(this.pokemonsGeneration1.pokemon_species));
+            //console.log('get types: '+JSON.stringify(this.pokemonsGeneration1.types));
             this.getPokemons()
             this.getTypes()
         },
@@ -169,10 +157,11 @@ export default {
                     pokemon: response.data.pokemon
                 })
             }
-            console.log('types: '+JSON.stringify(this.types));
+            //console.log('types: '+JSON.stringify(this.types));
         },
         typeChange(type){
             //Si se ha seleccionado el boton 'all', se mostraran todos los poquemos
+            this.search = ''
             this.pageNumber = 1
             if(type === 'all'){
                 this.filter_type = ''
@@ -184,14 +173,23 @@ export default {
             this.search = name;
         },
         pokemonSelected(pokemon) {
+            //console.log('on selected')
             this.search = pokemon.name
-            console.log(`Pokemon Selected:\nid: ${pokemon.id}\nname: ${pokemon.name}`)
+            //console.log(`Pokemon Selected:\nid: ${pokemon.id}\nname: ${pokemon.name}`)
         },
         onChangeSearch(pokemon) {
-            this.search = pokemon
+
+            if(pokemon && typeof pokemon == 'object'){
+                console.log('on change trusted')
+            }else{
+                this.filter_type = ''
+                this.pageNumber = 1
+                this.search = pokemon
+            }
+            
         },
         getDataPage(page){
-            console.log('getDataPage')
+            //Cambiar de página
             switch (page) {
                 case 'sub':
                     if(this.pageNumber > 1) {
@@ -211,7 +209,9 @@ export default {
         },
         filterPagination: function(data){
 
-             this.totalPages = Math.ceil(data.length / this.pokemonsByPage) 
+            this.totalPages = Math.ceil(data.length / this.pokemonsByPage) 
+
+            console.log('total pages filer pagination: '+this.totalPages)
 
             let result = [];
 
@@ -226,90 +226,27 @@ export default {
 
             return result
 
-        },
-        getImgTypeUrl(type) {
-            console.log('image type: '+type)
-            return '@/assets/ice.svg'
         }
     },
     computed: {
-        //Cuendo se detecte un cambio, realiza el filtro
-        searchHelp(){
-            //Filtrado para el autocompletado
-            if(this.search && typeof this.seach === 'string'){
-                return this.pokemons.filter((item)=>{
-                    return this.search.toLowerCase().split(' ').every(v => item.name.toLowerCase().includes(v))
-                })
-            }else{
-                return this.pokemons
-            }
-        },
         typeFilter: function(){
             //Filtrado por busqueda y typos
-
-            
-
             if(this.search && typeof this.search === 'string'){
                 //Si el buscador esta rellenado filtra por este
-                /*
-               return this.pokemons.filter((item,index) => {
-                    //return this.filter_type.every(v => item.type.includes(v))
-
-                    //this.totalPages = Math.floor(this.search.toLowerCase().split(' ').every(v => item.name.toLowerCase().includes(v)).length / 10)
-                    
-
-                    return this.search.toLowerCase().split(' ').every(v => item.name.toLowerCase().includes(v) && (index >= start) && (index < end))
-                })
-                */
-               let data = []
-
-               for (let index = 0; index < this.pokemons.length; index++) {
-                if(this.pokemons[index].name.includes(this.search)){
-                        data.push(this.pokemons[index]);
-                    }
-               }
-
-               
-
-               //this.totalPages = count;
-
-                return this.filterPagination(data);
+                return this.filterPagination(this.pokemons.filter((item) => {
+                    return this.search.toLowerCase().split(' ').every(v => item.name.toLowerCase().includes(v))
+                }));
                 
             }else if(this.filter_type && typeof this.search == 'string'){
                 //Si el buscador esta vacio y se ha elegido un tipo, filtrar por este.
-                /*
-                return this.pokemons.filter((item) => {
+                return this.filterPagination(this.pokemons.filter((item) => {
                     //console.log('item: '+index);
-                    return this.filter_type.toLowerCase().split(' ').every((v,index) => item.types.includes(v) && (index >= start) && (index < end))
-                })
-                */
-                let data = [];
-                for (let index = 0; index < this.pokemons.length; index++) {
-                    if(this.pokemons[index].types.includes(this.filter_type)){
-                        data.push(this.pokemons[index]);
-                    }
-                }
-                return this.filterPagination(data);
+                    return this.filter_type.toLowerCase().split(' ').every((v) => item.types.includes(v))
+                }));
                 
             }else{
                 //Si no se cumplen las dos condiciones, devolver todos los pokemons.
-                /*
-                let result = [];
-                for (let index = 0; index < this.pokemons.length; index++) {
-                    if(index >= start && index < end){
-                        result.push(this.pokemons[index]);
-                    }
-                }
-                return result
-                */
-                //console.log('POKEMONS: '+JSON.stringify(this.getDataPage(this.pokemons)))
-
                 return this.filterPagination(this.pokemons)
-                /*
-               return this.pokemons.filter((item, index) => {
-                    return (index >= start) && (index < end)
-                })
-                */
             }
         }
     },
@@ -323,7 +260,8 @@ export default {
         }
     },
     components: {
-        autoComplete
+        autoComplete,
+        icon
     }
     
 }
@@ -428,10 +366,19 @@ export default {
         height: 4em;
     }
 
-    .card span {
-        position: absolute;
-        top: 7em;
-        left: -2em;
+    .iconContainer {
+        float: left;
+        height: 3em;
+        padding: 0.5em 0.5em 2em 0.5em;
+        margin-top: 4.8em;
+        margin-left: 1.5em;
+    }
+
+    .iconContainer div {
+        width: auto;
+        padding: 0.3em 0.2em 0em 0.2em;
+        border-radius: 30px;
+        background-color: white;
     }
 
     #types button{
@@ -440,8 +387,17 @@ export default {
         border-radius: 30px;
         border-style: solid;
         border-color: yellow;
-        padding: 1em 4em 1em 4em;
+        padding: 0.5em 2.5em 0.5em 2.5em;
         margin: 1em 1em 0em 1em;
+    }
+
+    .iconButton {
+        width: 7em;
+    }
+
+    .iconButton span {
+        margin-left: 1em;
+        font-size: 15px;
     }
 
     #header table {
